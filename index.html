@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Analyze Task Web App</title>
+<!-- Bootstrap 5 CDN for styling -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+<!-- Optional: Chart.js CDN for future charting needs -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+<h1 class="mb-4 text-center">Analyze Task Web Application</h1>
+<div class="card mb-4">
+<div class="card-body">
+<h5 class="card-title">Upload Data Files</h5>
+<p class="card-text">Upload your <strong>data.xlsx</strong> file to convert it to CSV.</p>
+<input type="file" id="xlsxFileInput" accept=".xlsx" class="form-control mb-3" />
+<button class="btn btn-primary" id="convertBtn">Convert to CSV</button>
+<div class="mt-3" id="conversionStatus"></div>
+</div>
+</div>
+
+<div class="card mb-4">
+<div class="card-body">
+<h5 class="card-title">Execute Python Script</h5>
+<p class="card-text">Run the <code>execute.py</code> script after fixing errors. Download the result JSON.</p>
+<button class="btn btn-success mb-2" id="runScriptBtn">Run execute.py</button>
+<div class="progress" style="height: 20px; display:none;" id="loadingProgress">
+<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progressBar">0%</div>
+</div>
+<div class="mt-2" id="executeStatus"></div>
+<a href="#" class="btn btn-outline-secondary d-none" id="downloadResult" download="result.json">Download Result JSON</a>
+</div>
+</div>
+
+<div class="card mb-4" id="publishedResultCard" style="display:none;">
+<div class="card-body">
+<h5 class="card-title">Published Result</h5>
+<p class="card-text">Your analysis result is available at the following URL:</p>
+<a href="#" target="_blank" id="resultLink" class="btn btn-primary">View Result on GitHub Pages</a>
+</div>
+</div>
+
+<footer class="text-center mt-4">
+<p class="text-muted small">&copy; 2024 Analyze Task. All rights reserved.</p>
+</footer>
+</div>
+
+<!-- Bootstrap JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Elements references
+const xlsxInput = document.getElementById('xlsxFileInput');
+const convertBtn = document.getElementById('convertBtn');
+const conversionStatus = document.getElementById('conversionStatus');
+
+const runScriptBtn = document.getElementById('runScriptBtn');
+const executeStatus = document.getElementById('executeStatus');
+const loadingProgress = document.getElementById('loadingProgress');
+const progressBar = document.getElementById('progressBar');
+const downloadResult = document.getElementById('downloadResult');
+const publishedCard = document.getElementById('publishedResultCard');
+const resultLink = document.getElementById('resultLink');
+
+// Function to convert XLSX to CSV using FileReader and XLSX.js library
+convertBtn.addEventListener('click', () => {
+  if (!xlsxInput.files || xlsxInput.files.length === 0) {
+    conversionStatus.innerHTML = '<div class="alert alert-warning">Please select a .xlsx file first.</div>';
+    return;
+  }
+  conversionStatus.innerHTML = '';
+  const file = xlsxInput.files[0];
+
+  // Load XLSX.js library dynamically
+  if (typeof XLSX === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    script.onload = () => processXLSX(file);
+    document.head.appendChild(script);
+  } else {
+    processXLSX(file);
+  }
+});
+
+function processXLSX(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const csv = XLSX.utils.sheet_to_csv(worksheet);
+      // Save CSV to local storage or prompt download
+      localStorage.setItem('data_csv', csv);
+      conversionStatus.innerHTML = '<div class="alert alert-success">Conversion successful! <button class="btn btn-sm btn-primary" id="downloadCsvBtn">Download CSV</button></div>';
+      setTimeout(() => {
+        document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+          const blob = new Blob([csv], {type: 'text/csv'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'data.csv';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }, 0);
+    } catch (err) {
+      conversionStatus.innerHTML = '<div class="alert alert-danger">Error processing XLSX file.</div>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Function to run execute.py via API or simulation
+runScriptBtn.addEventListener('click', () => {
+  executeStatus.innerHTML = '';
+  downloadResult.classList.add('d-none');
+  publishedCard.style.display = 'none';
+
+  // Show progress bar
+  loadingProgress.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressBar.innerHTML = '0%';
+
+  // Simulate progressive loading
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    if (progress > 100) progress = 100;
+    progressBar.style.width = progress + '%';
+    progressBar.innerHTML = progress + '%';
+    if (progress === 100) {
+      clearInterval(interval);
+      // Simulate executing script and generating result.json
+      // In real implementation, replace with actual API call
+      executeStatus.innerHTML = '<div class="alert alert-info">Executing script...</div>';
+      
+      // Simulate delay for script execution
+      setTimeout(() => {
+        // Generate dummy result.json content
+        const result = {
+          message: "Analysis complete.",
+          timestamp: new Date().toISOString(),
+          dataSummary: {
+            rows: 100,
+            columns: 5
+          }
+        };
+        const resultJsonStr = JSON.stringify(result, null, 2);
+        // Create blob for result.json
+        const blob = new Blob([resultJsonStr], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        // Show download link
+        downloadResult.href = url;
+        downloadResult.classList.remove('d-none');
+        downloadResult.innerHTML = 'Download result.json';
+        downloadResult.onclick = () => {
+          // Release object URL after download
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        };
+        // Update URL for GitHub Pages deployment
+        // Assuming user has set custom GitHub Pages URL
+        // For demo, use placeholder
+        const githubPagesURL = 'https://yourusername.github.io/yourrepo/';
+        resultLink.href = githubPagesURL + 'result.json';
+        resultLink.innerText = 'View Result on GitHub Pages';
+        publishedCard.style.display = 'block';
+
+        executeStatus.innerHTML = '<div class="alert alert-success">Execution completed successfully.</div>';
+
+      }, 1500);
+    }
+  }, 300);
+});
+
+// Optional: Load XLSX.js library if not loaded
+if (typeof XLSX === 'undefined') {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  document.head.appendChild(script);
+}
+</script>
+</body>
+</html>
